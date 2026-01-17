@@ -4,6 +4,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_s3_assets as s3_assets,
     RemovalPolicy,
+    Stack,
 )
 from constructs import Construct
 from cdk_nag import NagSuppressions
@@ -54,10 +55,10 @@ class CodeBuildConstruct(Construct):
                     value="latest"
                 ),
                 "AWS_DEFAULT_REGION": codebuild.BuildEnvironmentVariable(
-                    value=scope.region
+                    value=Stack.of(self).region
                 ),
                 "AWS_ACCOUNT_ID": codebuild.BuildEnvironmentVariable(
-                    value=scope.account
+                    value=Stack.of(self).account
                 ),
                 "DOCKER_ASSET_S3_BUCKET": codebuild.BuildEnvironmentVariable(
                     value=docker_asset.s3_bucket_name
