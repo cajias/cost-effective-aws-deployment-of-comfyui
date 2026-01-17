@@ -10,6 +10,7 @@ from comfyui_aws_stack.construct.asg_construct import AsgConstruct
 from comfyui_aws_stack.construct.ecs_construct import EcsConstruct
 from comfyui_aws_stack.construct.admin_construct import AdminConstruct
 from comfyui_aws_stack.construct.auth_construct import AuthConstruct
+from comfyui_aws_stack.construct.codebuild_construct import CodeBuildConstruct
 from aws_cdk import (
     aws_chatbot as chatbot,
     aws_iam as iam
@@ -55,6 +56,10 @@ class ComfyUIStack(Stack):
                  # Slack
                  slack_workspace_id: str = None,
                  slack_channel_id: str = None,
+                 # Docker Configuration
+                 use_codebuild: bool = False,
+                 docker_image: str = None,
+                 container_port: int = 8181,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -121,6 +126,14 @@ class ComfyUIStack(Stack):
             slack_channel_id=slack_channel_id,
         )
 
+        # CodeBuild (Optional)
+
+        codebuild_construct = None
+        if use_codebuild:
+            codebuild_construct = CodeBuildConstruct(
+                self, "CodeBuildConstruct"
+            )
+
         # ECS
 
         ecs_construct = EcsConstruct(
@@ -135,6 +148,10 @@ class ComfyUIStack(Stack):
             user_pool_client=auth_construct.user_pool_client,
             slack_workspace_id=slack_workspace_id,
             slack_channel_id=slack_channel_id,
+            ecr_repository=codebuild_construct.ecr_repository if codebuild_construct else None,
+            ecr_image_tag=codebuild_construct.image_tag if codebuild_construct else None,
+            docker_image=docker_image,
+            container_port=container_port,
         )
 
         # Slack
