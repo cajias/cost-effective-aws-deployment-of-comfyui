@@ -1,4 +1,4 @@
-FROM FROM public.ecr.aws/nvidia/cuda:12.9.0-runtime-ubuntu22.04
+FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=America/Los_Angeles
@@ -37,10 +37,12 @@ RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI .
 
 # Install Python packages globally (no virtual environment needed since EBS mount overwrites directory)
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu129 && \
+    pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126 && \
     pip install ninja && \
-    pip install PyYAML && \
-    pip install -v --no-build-isolation -U git+https://github.com/facebookresearch/xformers.git@main#egg=xformers
+    pip install PyYAML
+
+# Try to install xformers (optional - improves performance but not required)
+RUN pip install xformers || echo "xformers installation skipped (optional)"
 
 # Clone ComfyUI-Manager and install its requirements
 RUN mkdir -p custom_nodes/ComfyUI-Manager && \
