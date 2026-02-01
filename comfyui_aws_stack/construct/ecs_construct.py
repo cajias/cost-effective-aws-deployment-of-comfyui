@@ -1,6 +1,7 @@
 from aws_cdk import (
     aws_ecs as ecs,
     aws_ec2 as ec2,
+    aws_ecr as ecr,
     aws_ecr_assets as ecr_assets,
     aws_logs as logs,
     aws_iam as iam,
@@ -22,6 +23,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 from cdk_nag import NagSuppressions
+from typing import Optional
 
 
 class EcsConstruct(Construct):
@@ -44,6 +46,9 @@ class EcsConstruct(Construct):
             user_pool_client: cognito.UserPoolClient,
             slack_workspace_id: str = None,
             slack_channel_id: str = None,
+            ecr_repository: Optional[ecr.Repository] = None,
+            ecr_image_tag: str = "latest",
+            container_port: int = 8181,  # 8181 for custom image, 8188 for standard ComfyUI
             **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -78,15 +83,30 @@ class EcsConstruct(Construct):
             ],
         )
 
-        # ECR Repository
-        docker_image_asset = ecr_assets.DockerImageAsset(
-            scope,
-            "ComfyUIImage",
-            directory="comfyui_aws_stack/docker",
-            platform=ecr_assets.Platform.LINUX_AMD64,
-            network_mode=ecr_assets.NetworkMode.custom(
-                "sagemaker") if is_sagemaker_studio else None
-        )
+        # ECR Repository - use provided repo (CodeBuild), public image, or build locally
+        if ecr_repository:
+            # Use pre-existing ECR repository (built via CodeBuild)
+            container_image = ecs.ContainerImage.from_ecr_repository(
+                ecr_repository,
+                ecr_image_tag
+            )
+        elif ecr_image_tag.startswith("docker.io/") or "/" in ecr_image_tag:
+            # Use pre-built public Docker image
+            container_image = ecs.ContainerImage.from_registry(ecr_image_tag)
+        else:
+            # Build locally using DockerImageAsset
+            docker_image_asset = ecr_assets.DockerImageAsset(
+                scope,
+                "ComfyUIImage",
+                directory="comfyui_aws_stack/docker",
+                platform=ecr_assets.Platform.LINUX_AMD64,
+                network_mode=ecr_assets.NetworkMode.custom(
+                    "sagemaker") if is_sagemaker_studio else None
+            )
+            container_image = ecs.ContainerImage.from_ecr_repository(
+                docker_image_asset.repository,
+                docker_image_asset.image_tag
+            )
 
         # CloudWatch Logs Group
         log_group = logs.LogGroup(
@@ -129,10 +149,7 @@ class EcsConstruct(Construct):
         # Add container to the task definition
         container = task_definition.add_container(
             "ComfyUIContainer",
-            image=ecs.ContainerImage.from_ecr_repository(
-                docker_image_asset.repository,
-                docker_image_asset.image_tag
-            ),
+            image=container_image,
             gpu_count=1,
             memory_reservation_mib=15000,
             memory_limit_mib=15000,  # Set total memory limit
@@ -141,11 +158,11 @@ class EcsConstruct(Construct):
                 stream_prefix="comfy-ui", log_group=log_group),
             health_check=ecs.HealthCheck(
                 command=[
-                    "CMD-SHELL", "curl -f http://localhost:8181/system_stats || exit 1"],
+                    "CMD-SHELL", f"curl -f http://localhost:{container_port}/system_stats || curl -f http://localhost:{container_port}/ || exit 1"],
                 interval=Duration.seconds(15),
                 timeout=Duration.seconds(10),
                 retries=8,
-                start_period=Duration.seconds(30)
+                start_period=Duration.seconds(120)  # Give more time for initial startup
             ),
             environment={
                 "AWS_REGION": region,
@@ -167,8 +184,8 @@ class EcsConstruct(Construct):
         # Port mappings for the container
         container.add_port_mappings(
             ecs.PortMapping(
-                container_port=8181,
-                host_port=8181,
+                container_port=container_port,
+                host_port=container_port,
                 app_protocol=ecs.AppProtocol.http,
                 name="comfyui-port-mapping",
                 protocol=ecs.Protocol.TCP,
@@ -184,11 +201,11 @@ class EcsConstruct(Construct):
             allow_all_outbound=True,
         )
 
-        # Allow inbound traffic on port 8181
+        # Allow inbound traffic on container port
         service_security_group.add_ingress_rule(
             ec2.Peer.security_group_id(alb_security_group.security_group_id),
-            ec2.Port.tcp(8181),
-            "Allow inbound traffic on port 8181",
+            ec2.Port.tcp(container_port),
+            f"Allow inbound traffic on port {container_port}",
         )
 
         # Create ECS Service
@@ -212,20 +229,20 @@ class EcsConstruct(Construct):
         ecs_target_group = elbv2.ApplicationTargetGroup(
             scope,
             "EcsTargetGroup",
-            port=8181,
+            port=container_port,
             vpc=vpc,
             protocol=elbv2.ApplicationProtocol.HTTP,
             target_type=elbv2.TargetType.IP,
             targets=[
                 service.load_balancer_target(
-                    container_name=container.container_name, container_port=8181
+                    container_name=container.container_name, container_port=container_port
                 )],
             health_check=elbv2.HealthCheck(
                 enabled=True,
-                path="/system_stats",
-                port="8181",
+                path="/",  # Standard ComfyUI health check path
+                port=str(container_port),
                 protocol=elbv2.Protocol.HTTP,
-                healthy_http_codes="200",  # Adjust as needed
+                healthy_http_codes="200",
                 interval=Duration.seconds(30),
                 timeout=Duration.seconds(5),
                 unhealthy_threshold_count=3,
