@@ -56,10 +56,10 @@ class ComfyUIStack(Stack):
                  # Slack
                  slack_workspace_id: str = None,
                  slack_channel_id: str = None,
-                 # Docker Build
+                 # Docker Configuration
                  use_codebuild: bool = False,
-                 docker_image: str = None,  # Use pre-built public image (e.g., "yanwk/comfyui-boot:latest")
-                 container_port: int = 8181,  # 8181 for custom image, 8188 for standard ComfyUI
+                 docker_image: str = None,
+                 container_port: int = 8181,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -134,6 +134,14 @@ class ComfyUIStack(Stack):
             slack_workspace_id=slack_workspace_id,
             slack_channel_id=slack_channel_id,
         )
+
+        # CodeBuild (Optional)
+
+        codebuild_construct = None
+        if use_codebuild:
+            codebuild_construct = CodeBuildConstruct(
+                self, "CodeBuildConstruct"
+            )
 
         # ECS
 

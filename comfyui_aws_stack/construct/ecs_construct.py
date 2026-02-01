@@ -46,9 +46,10 @@ class EcsConstruct(Construct):
             user_pool_client: cognito.UserPoolClient,
             slack_workspace_id: str = None,
             slack_channel_id: str = None,
-            ecr_repository: Optional[ecr.Repository] = None,
-            ecr_image_tag: str = "latest",
-            container_port: int = 8181,  # 8181 for custom image, 8188 for standard ComfyUI
+            ecr_repository: ecr.Repository = None,
+            ecr_image_tag: str = None,
+            docker_image: str = None,
+            container_port: int = 8181,
             **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -83,18 +84,18 @@ class EcsConstruct(Construct):
             ],
         )
 
-        # ECR Repository - use provided repo (CodeBuild), public image, or build locally
-        if ecr_repository:
-            # Use pre-existing ECR repository (built via CodeBuild)
+        # Docker Image Configuration
+        if docker_image:
+            # Use pre-built public Docker image
+            container_image = ecs.ContainerImage.from_registry(docker_image)
+        elif ecr_repository and ecr_image_tag:
+            # Use image from ECR repository (built via CodeBuild)
             container_image = ecs.ContainerImage.from_ecr_repository(
                 ecr_repository,
                 ecr_image_tag
             )
-        elif ecr_image_tag.startswith("docker.io/") or "/" in ecr_image_tag:
-            # Use pre-built public Docker image
-            container_image = ecs.ContainerImage.from_registry(ecr_image_tag)
         else:
-            # Build locally using DockerImageAsset
+            # Build Docker image locally
             docker_image_asset = ecr_assets.DockerImageAsset(
                 scope,
                 "ComfyUIImage",
@@ -158,7 +159,7 @@ class EcsConstruct(Construct):
                 stream_prefix="comfy-ui", log_group=log_group),
             health_check=ecs.HealthCheck(
                 command=[
-                    "CMD-SHELL", f"curl -f http://localhost:{container_port}/system_stats || curl -f http://localhost:{container_port}/ || exit 1"],
+                    "CMD-SHELL", f"curl -f http://localhost:{container_port}/system_stats || exit 1"],
                 interval=Duration.seconds(15),
                 timeout=Duration.seconds(10),
                 retries=8,
@@ -201,7 +202,7 @@ class EcsConstruct(Construct):
             allow_all_outbound=True,
         )
 
-        # Allow inbound traffic on container port
+        # Allow inbound traffic on the configured port
         service_security_group.add_ingress_rule(
             ec2.Peer.security_group_id(alb_security_group.security_group_id),
             ec2.Port.tcp(container_port),
@@ -239,7 +240,7 @@ class EcsConstruct(Construct):
                 )],
             health_check=elbv2.HealthCheck(
                 enabled=True,
-                path="/",  # Standard ComfyUI health check path
+                path="/system_stats",
                 port=str(container_port),
                 protocol=elbv2.Protocol.HTTP,
                 healthy_http_codes="200",

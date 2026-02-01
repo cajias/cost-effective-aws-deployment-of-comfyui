@@ -1069,6 +1069,7 @@
             'MaximumPercent': 200,
             'MinimumHealthyPercent': 0,
           }),
+          'DesiredCount': 1,
           'EnableECSManagedTags': False,
           'HealthCheckGracePeriodSeconds': 30,
           'LoadBalancers': list([
@@ -3736,10 +3737,6 @@
                     'Ref': 'ComfyUIuserPoolalbappclient47C9BB97',
                   }),
                 }),
-                dict({
-                  'Name': 'REDIRECT_URL',
-                  'Value': 'https://main.d3p03cfmx0ddk0.amplifyapp.com',
-                }),
               ]),
               'Essential': True,
               'HealthCheck': dict({
@@ -3760,9 +3757,15 @@
                     dict({
                       'Ref': 'AWS::URLSuffix',
                     }),
-                    '/cdk-hnb659fds-container-assets-123456789012-us-east-1:757429407b133334f7c03488bbfba81ebfa9c0330a3e210d15d5f44a5e8fd999',
+                    '/cdk-hnb659fds-container-assets-123456789012-us-east-1:cb07cc5ad2203f3d3a7a3e8ac153059b201a64216a40f6dffcd57c049db7f482',
                   ]),
                 ]),
+              }),
+              'LinuxParameters': dict({
+                'Capabilities': dict({
+                }),
+                'MaxSwap': 10240,
+                'Swappiness': 60,
               }),
               'LogConfiguration': dict({
                 'LogDriver': 'awslogs',
@@ -3774,6 +3777,7 @@
                   'awslogs-stream-prefix': 'comfy-ui',
                 }),
               }),
+              'Memory': 15000,
               'MemoryReservation': 15000,
               'MountPoints': list([
                 dict({

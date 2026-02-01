@@ -17,6 +17,22 @@ comfy_ui_stack = ComfyUIStack(
     tags={
         "Repository": "aws-samples/cost-effective-aws-deployment-of-comfyui"
     },
+    # Override Parameters (example)
+    # auto_scale_down=False,
+    # schedule_auto_scaling=True,
+    # timezone="Asia/Tokyo",
+    # schedule_scale_up="0 8 * * 1-5",
+    # schedule_scale_down="0 19 * * *",
+    # self_sign_up_enabled=True,
+    # allowed_sign_up_email_domains=["amazon.com"],
+    
+    # Docker Configuration
+    # Use CodeBuild to build Docker image (required for ARM Macs)
+    # use_codebuild=True,
+    
+    # Or use pre-built Docker image (faster alternative)
+    # docker_image="yanwk/comfyui-boot:latest",
+    # container_port=8188,
     # Override Parameters
     self_sign_up_enabled=True,
     allowed_sign_up_email_domains=["amazon.com"],

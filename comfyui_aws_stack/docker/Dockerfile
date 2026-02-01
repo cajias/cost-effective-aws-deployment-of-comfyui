@@ -39,10 +39,8 @@ RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI .
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu126 && \
     pip install ninja && \
-    pip install PyYAML
-
-# Try to install xformers (optional - improves performance but not required)
-RUN pip install xformers || echo "xformers installation skipped (optional)"
+    pip install PyYAML && \
+    (pip install -v --no-build-isolation -U git+https://github.com/facebookresearch/xformers.git@main#egg=xformers || echo "xformers installation failed, skipping...")
 
 # Clone ComfyUI-Manager and install its requirements
 RUN mkdir -p custom_nodes/ComfyUI-Manager && \
