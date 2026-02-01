@@ -23,6 +23,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 from cdk_nag import NagSuppressions
+from typing import Optional
 
 
 class EcsConstruct(Construct):
@@ -162,7 +163,7 @@ class EcsConstruct(Construct):
                 interval=Duration.seconds(15),
                 timeout=Duration.seconds(10),
                 retries=8,
-                start_period=Duration.seconds(30)
+                start_period=Duration.seconds(120)  # Give more time for initial startup
             ),
             environment={
                 "AWS_REGION": region,
@@ -242,7 +243,7 @@ class EcsConstruct(Construct):
                 path="/system_stats",
                 port=str(container_port),
                 protocol=elbv2.Protocol.HTTP,
-                healthy_http_codes="200",  # Adjust as needed
+                healthy_http_codes="200",
                 interval=Duration.seconds(30),
                 timeout=Duration.seconds(5),
                 unhealthy_threshold_count=3,

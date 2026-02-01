@@ -33,6 +33,16 @@ comfy_ui_stack = ComfyUIStack(
     # Or use pre-built Docker image (faster alternative)
     # docker_image="yanwk/comfyui-boot:latest",
     # container_port=8188,
+    # Override Parameters
+    self_sign_up_enabled=True,
+    allowed_sign_up_email_domains=["amazon.com"],
+    # Custom domain
+    host_name="comfyui",
+    domain_name="cajias.people.aws.dev",
+    hosted_zone_id="Z03928411JH6ILK517TK2",
+    # Use pre-built Docker image (faster than CodeBuild)
+    docker_image="yanwk/comfyui-boot:latest",
+    container_port=8188,  # Standard ComfyUI port
 )
 
 Aspects.of(app).add(AwsSolutionsChecks(verbose=False))

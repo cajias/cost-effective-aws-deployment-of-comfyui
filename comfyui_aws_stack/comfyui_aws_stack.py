@@ -110,6 +110,15 @@ class ComfyUIStack(Stack):
             allowed_sign_up_email_domains=allowed_sign_up_email_domains,
         )
 
+        # CodeBuild (optional - for building Docker image remotely)
+
+        codebuild_construct = None
+        if use_codebuild:
+            codebuild_construct = CodeBuildConstruct(
+                self, "CodeBuildConstruct",
+                suffix=suffix,
+            )
+
         # ASG
 
         asg_construct = AsgConstruct(
@@ -136,6 +145,17 @@ class ComfyUIStack(Stack):
 
         # ECS
 
+        # Determine image source: docker_image > codebuild > local build
+        if docker_image:
+            ecr_repo = None
+            image_tag = docker_image
+        elif codebuild_construct:
+            ecr_repo = codebuild_construct.repository
+            image_tag = codebuild_construct.image_tag
+        else:
+            ecr_repo = None
+            image_tag = "latest"
+
         ecs_construct = EcsConstruct(
             self, "EcsConstruct",
             vpc=vpc_construct.vpc,
@@ -148,9 +168,8 @@ class ComfyUIStack(Stack):
             user_pool_client=auth_construct.user_pool_client,
             slack_workspace_id=slack_workspace_id,
             slack_channel_id=slack_channel_id,
-            ecr_repository=codebuild_construct.ecr_repository if codebuild_construct else None,
-            ecr_image_tag=codebuild_construct.image_tag if codebuild_construct else None,
-            docker_image=docker_image,
+            ecr_repository=ecr_repo,
+            ecr_image_tag=image_tag,
             container_port=container_port,
         )
 
